@@ -1,32 +1,174 @@
- generator client {
+generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma" 
+  output   = "../generated/prisma"
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-model File {
+// ================================================= //
+//                 Моделі Аутентифікації та Груп     //
+// ================================================= //
+
+model User {
   id        String   @id @default(cuid())
-  bucket    String
-  key       String   @unique
-  mime      String?
-  bytes     Int?
+  email     String   @unique
+  password  String // Пароль буде хешованим
+  firstName String?
+  lastName  String?
+  role      UserRole @default(RESIDENT)
+
+  // Зв'язок з ОСББ: один користувач належить до одного ОСББ
+  osbbId String?
+  osbb   OSBB?   @relation(fields: [osbbId], references: [id])
+
+  // Які звернення створив цей користувач
+  reports         Report[]
+  // Які оновлення/коментарі залишив
+  reportUpdates   ReportUpdate[]
+  // Сповіщення для цього користувача
+  notifications   Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OSBB {
+  id      String  @id @default(cuid())
+  name    String  @unique // Назва ОСББ, напр. "Сонячний Дім"
+  address String?
+
+  // Список мешканців, що входять до цього ОСББ
+  members User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ================================================= //
+//                 Основні Моделі Системи            //
+// ================================================= //
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  lat         Decimal  @db.Decimal(9, 6)
+  lng         Decimal  @db.Decimal(9, 6)
+  geom        Unsupported("geography(Point, 4326)")? // Тип для PostGIS
+
+  status ReportStatus @default(NEW)
+
+  // Хто автор звернення
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  // До якої категорії належить
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  // Хто є одержувачем/виконавцем
+  recipientId String
+  recipient   Recipient @relation(fields: [recipientId], references: [id])
+
+  // Історія змін та коментарі
+  updates ReportUpdate[]
+  // Файли, прикріплені до звернення
+  files   File[]
+  // Сповіщення, пов'язані з цим зверненням
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id   String @id @default(cuid())
+  name String @unique // Напр. "Ремонт доріг", "Освітлення", "Водопостачання"
+  icon String? // Назва іконки для фронтенду
+
+  // Список звернень у цій категорії
+  reports Report[]
+}
+
+model Recipient {
+  id          String @id @default(cuid())
+  name        String @unique // Напр. "Міська рада", "Міськсвітло", "Водоканал"
+  contactInfo String?
+
+  // Список звернень, адресованих цьому одержувачу
+  reports Report[]
+}
+
+// Модель для зберігання історії змін по кожному зверненню
+model ReportUpdate {
+  id          String   @id @default(cuid())
+  description String   @db.Text
+  
+  // Якого звернення стосується
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  
+  // Хто зробив зміну (мешканець, представник компанії)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
   createdAt DateTime @default(now())
 }
 
-model Report {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  lat         Decimal   @db.Decimal(9, 6)
-  lng         Decimal   @db.Decimal(9, 6)
-  
-  geom        Unsupported("geography")?
+model Notification {
+  id      String  @id @default(cuid())
+  message String
+  isRead  Boolean @default(false)
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  // Кому надіслати сповіщення
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // (Опційно) Посилання на конкретне звернення
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+// ================================================= //
+//                   Допоміжні Моделі                //
+// ================================================= //
+
+model File {
+  id     String @id @default(cuid())
+  bucket String
+  key    String @unique
+  mime   String?
+  bytes  Int?
+
+  // Зв'язок з репортом: один файл належить до одного репорту
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+
+// ================================================= //
+//               Перелічувані типи (Enums)           //
+// ================================================= //
+
+enum UserRole {
+  RESIDENT    // Мешканець
+  OSBB_ADMIN  // Голова ОСББ
+  RECIPIENT   // Представник компанії-одержувача
+  ADMIN       // Адміністратор системи
+}
+
+enum ReportStatus {
+  NEW          // Нове
+  IN_PROGRESS  // В роботі
+  DONE         // Виконано
+  REJECTED     // Відхилено
 }
