@@ -1,7 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { CreateReportDto } from './dto/create-report.dto';
-import { UpdateReportDto } from './dto/update-report.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
@@ -9,35 +8,45 @@ export class ReportsService {
   findAll() {
     return this.prisma.report.findMany({
       include: {
-        author: true,
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         category: true,
+        recipient: true,
+        files: {
+          take: 1,
+        },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: 'desc', 
       },
     });
   }
+  
+  async findOne(id: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: {
+        author: { select: { firstName: true, lastName: true, email: true } },
+        category: true,
+        recipient: true,
+        files: true,
+        updates: {
+          orderBy: { createdAt: 'asc' }, 
+          include: {
+            author: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+    });
+    
+    if (!report) {
+      throw new NotFoundException(`Звернення з ID "${id}" не знайдено`);
+    }
+
+    return report;
+  }
 }
-
-// @Injectable()
-// export class ReportsService {
-//   create(createReportDto: CreateReportDto) {
-//     return 'This action adds a new report';
-//   }
-
-//   findAll() {
-//     return `This action returns all reports`;
-//   }
-
-//   findOne(id: number) {
-//     return `This action returns a #${id} report`;
-//   }
-
-//   update(id: number, updateReportDto: UpdateReportDto) {
-//     return `This action updates a #${id} report`;
-//   }
-
-//   remove(id: number) {
-//     return `This action removes a #${id} report`;
-//   }
-// }
