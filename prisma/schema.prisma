@@ -1,15 +1,143 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  role          UserRole       @default(RESIDENT)
+  osbbId        String?
+  osbb          OSBB?          @relation(fields: [osbbId], references: [id])
+  reports       Report[]
+  reportUpdates ReportUpdate[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model OSBB {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  address        String?
+  invitationCode String   @unique @default(cuid())
+  members        User[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  lat         Decimal      @db.Decimal(9, 6)
+  lng         Decimal      @db.Decimal(9, 6)
+  geom        Unsupported("geography(Point, 4326)")?
+  status      ReportStatus @default(NEW)
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id])
+  recipientId String
+  recipient   Recipient    @relation(fields: [recipientId], references: [id])
+  updates     ReportUpdate[]
+  files       File[]
+  notifications Notification[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([recipientId])
+  @@index([status])
+}
+
+
+model Category {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  icon    String?
+  reports Report[]
+}
+
+model Recipient {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  contactInfo String?
+  reports     Report[]
+}
+
+model ReportUpdate {
+  id          String   @id @default(cuid())
+  description String   @db.Text
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType     @default(STATUS_UPDATE)
+  priority  NotificationPriority @default(NORMAL)
+  isRead    Boolean              @default(false)
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportId  String?
+  report    Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  createdAt DateTime             @default(now())
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([isRead, createdAt])
+}
+
+model File {
+  id        String   @id @default(cuid())
+  bucket    String
+  key       String   @unique
+  mime      String?
+  bytes     Int?
+  reportId  String?
+  report    Report?  @relation(fields: [reportId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  RESIDENT
+  OSBB_ADMIN
+  RECIPIENT
+  ADMIN
+}
+
+enum ReportStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  REJECTED
+}
+
+enum NotificationType {
+  STATUS_UPDATE
+  RESPONSE
+  REMINDER
+  SYSTEM
+}
+
+enum NotificationPriority {
+  URGENT
+  NORMAL
+  LOW
 }
