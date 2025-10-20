@@ -1,7 +1,7 @@
-import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Decimal } from '@prisma/client/runtime/library'; 
 import { Prisma } from '@prisma/client';
 import NodeGeocoder, { Geocoder } from 'node-geocoder';
 
@@ -40,7 +40,9 @@ export class ReportsService {
         },
       },
     });
-    if (!report) throw new NotFoundException(`Звернення з ID "${id}" не знайдено`);
+    if (!report) {
+      throw new NotFoundException(`Звернення з ID "${id}" не знайдено`);
+    }
     return report;
   }
 
@@ -57,22 +59,24 @@ export class ReportsService {
     });
   }
 
-  async create(createReportDto: CreateReportDto, userId: string) {
+  async create(createReportDto: CreateReportDto, userId: string, fileKeys: string[] = []) {
     const { title, description, lat, lng, address, categoryId, recipientId } = createReportDto;
 
-    let latitude: Decimal | null = null;
-    let longitude: Decimal | null = null;
+    let latitude: Decimal;
+    let longitude:  Decimal;
 
     if (lat != null && lng != null) {
       latitude = new Decimal(lat);
       longitude = new Decimal(lng);
     } else if (address) {
       const geoResult = await this.geocoder.geocode(address);
-      if (!geoResult?.length) throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+      if (!geoResult?.length || geoResult[0].latitude == null || geoResult[0].longitude == null) {
+        throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+      }
       latitude = new Decimal(geoResult[0].latitude as number);
       longitude = new Decimal(geoResult[0].longitude as number);
     } else {
-      throw new BadRequestException('Необхідно вказати адресу або координати.');
+      throw new BadRequestException('Не надано ані координат, ані адреси.');
     }
 
     const newReport = await this.prisma.report.create({
@@ -87,16 +91,26 @@ export class ReportsService {
       },
     });
 
-    if (latitude && longitude) {
-      await this.prisma.$executeRaw`
-        UPDATE "Report"
-        SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-        WHERE id = ${newReport.id}
-      `;
-      this.logger.log(`Оновлено geom для звіту ID: ${newReport.id}`);
+    await this.prisma.$executeRaw`
+      UPDATE "Report"
+      SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+      WHERE id = ${newReport.id}
+    `;
+
+    if (fileKeys.length > 0) {
+      const bucketName = process.env.S3_BUCKET;
+      if (!bucketName) {
+        throw new InternalServerErrorException('Назва S3 бакету не налаштована.');
+      }
+      await this.prisma.file.createMany({
+        data: fileKeys.map((key) => ({
+          key,
+          bucket: bucketName,
+          reportId: newReport.id,
+        })),
+      });
     }
 
-    this.logger.log(`Створено нове звернення ID: ${newReport.id}`);
     return newReport;
   }
 }
