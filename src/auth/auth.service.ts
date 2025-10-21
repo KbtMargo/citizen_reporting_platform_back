@@ -1,8 +1,16 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
+import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Injectable } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
 
+@Injectable()
+export class PrismaService extends PrismaClient {
+  [x: string]: any;
+  constructor() {
+    super();
+  }
+}
 @Injectable()
 export class AuthService {
   constructor(
@@ -10,7 +18,15 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(email: string, password: string, firstName?: string) {
+  async register(email: string, password: string, firstName: string, lastName: string, invitationCode: string) {
+    const osbb = await this.prisma.osbb.findUnique({
+      where: { invitationCode },
+    });
+
+    if (!osbb) {
+      throw new BadRequestException('Неправильний код-запрошення ОСББ');
+    }
+
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       throw new ConflictException('Користувач з таким email вже існує');
@@ -23,6 +39,8 @@ export class AuthService {
         email,
         password: hashedPassword,
         firstName,
+        lastName,
+        osbbId: osbb.id,
       },
     });
 
