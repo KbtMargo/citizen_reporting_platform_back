@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ReportStatus, Prisma } from '@prisma/client'; 
 
 @Injectable()
 export class UsersService {
@@ -20,5 +22,36 @@ export class UsersService {
         const { password, ...result } = user;
         return result;
     }
-}
 
+    async updateProfile(userId: string, data: UpdateUserDto) {
+        const { email, ...updateData } = data;
+        if (email) {
+            console.warn("Електронну пошту не можна змінювати.");
+        }
+
+        const user = await this.prisma.user.update({
+            where: { id: userId },
+            data: updateData, 
+        });
+
+        const { password, ...result } = user;
+        return result;
+    }
+
+    async getUserStats(userId: string) {
+        const totalReports = await this.prisma.report.count({
+            where: { authorId: userId },
+        });
+        const resolvedReports = await this.prisma.report.count({
+            where: { authorId: userId, status: ReportStatus.DONE },
+        });
+        const activeReports = await this.prisma.report.count({
+            where: {
+                authorId: userId,
+                status: { in: [ReportStatus.NEW, ReportStatus.IN_PROGRESS] }
+            },
+        });
+
+        return { totalReports, resolvedReports, activeReports };
+    }
+}

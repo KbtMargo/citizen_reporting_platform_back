@@ -1,16 +1,9 @@
-import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-@Injectable()
-export class PrismaService extends PrismaClient {
-  [x: string]: any;
-  constructor() {
-    super();
-  }
-}
 @Injectable()
 export class AuthService {
   constructor(
@@ -18,8 +11,8 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(email: string, password: string, firstName: string, lastName: string, invitationCode: string) {
-    const osbb = await this.prisma.osbb.findUnique({
+  async register(email: string, password: string, firstName: string, lastName: string, invitationCode: string, phone?: string) {
+    const osbb = await this.prisma.oSBB.findUnique({
       where: { invitationCode },
     });
 
@@ -40,7 +33,10 @@ export class AuthService {
         password: hashedPassword,
         firstName,
         lastName,
-        osbbId: osbb.id,
+        phone,
+        osbb: {
+          connect: { id: osbb.id }
+        }
       },
     });
 
@@ -58,7 +54,7 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, email: user.email, role: user.role };
-    
+
     return {
       access_token: await this.jwtService.signAsync(payload),
     };
