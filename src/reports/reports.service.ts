@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
-import { Decimal } from '@prisma/client/runtime/library'; 
-import { Prisma } from '@prisma/client';
-import NodeGeocoder, { Geocoder } from 'node-geocoder';
+import { Prisma, ReportStatus } from '@prisma/client';
+import { Geocoder } from 'node-geocoder';
+import NodeGeocoder = require('node-geocoder');
 
 @Injectable()
 export class ReportsService {
@@ -62,21 +62,40 @@ export class ReportsService {
   async create(createReportDto: CreateReportDto, userId: string, fileKeys: string[] = []) {
     const { title, description, lat, lng, address, categoryId, recipientId } = createReportDto;
 
-    let latitude: Decimal;
-    let longitude:  Decimal;
+    let latitude: Prisma.Decimal;
+    let longitude: Prisma.Decimal;
+    let finalAddress: string | null | undefined = address;
 
-    if (lat != null && lng != null) {
-      latitude = new Decimal(lat);
-      longitude = new Decimal(lng);
-    } else if (address) {
-      const geoResult = await this.geocoder.geocode(address);
-      if (!geoResult?.length || geoResult[0].latitude == null || geoResult[0].longitude == null) {
-        throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+    if (lat && lng) {
+      latitude = new Prisma.Decimal(lat);
+      longitude = new Prisma.Decimal(lng);
+      if (!finalAddress) {
+        try {
+          const geoResult = await this.geocoder.reverse({ lat: parseFloat(lat), lon: parseFloat(lng) });
+          if (geoResult.length > 0 && geoResult[0].formattedAddress) {
+            finalAddress = geoResult[0].formattedAddress;
+          }
+        } catch (e) { this.logger.warn("Не вдалося виконати зворотнє геокодування"); }
       }
-      latitude = new Decimal(geoResult[0].latitude as number);
-      longitude = new Decimal(geoResult[0].longitude as number);
+    } else if (address) {
+      try {
+        const geoResult = await this.geocoder.geocode(address);
+        if (geoResult && geoResult.length > 0 && geoResult[0].latitude && geoResult[0].longitude) {
+          latitude = new Prisma.Decimal(geoResult[0].latitude);
+          longitude = new Prisma.Decimal(geoResult[0].longitude);
+        } else {
+          throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+        }
+      } catch (error) {
+        this.logger.error(`Помилка геокодування: ${error.message}`);
+        throw new BadRequestException(`Помилка при визначенні координат.`);
+      }
     } else {
       throw new BadRequestException('Не надано ані координат, ані адреси.');
+    }
+
+    if (!latitude || !longitude) {
+        throw new InternalServerErrorException('Не вдалося визначити координати.');
     }
 
     const newReport = await this.prisma.report.create({
@@ -85,17 +104,16 @@ export class ReportsService {
         description,
         lat: latitude,
         lng: longitude,
+        address: finalAddress,
         authorId: userId,
         categoryId,
         recipientId,
       },
     });
 
-    await this.prisma.$executeRaw`
-      UPDATE "Report"
-      SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-      WHERE id = ${newReport.id}
-    `;
+    await this.prisma.$executeRaw(
+      Prisma.sql`UPDATE "Report" SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326) WHERE id = ${newReport.id}`
+    );
 
     if (fileKeys.length > 0) {
       const bucketName = process.env.S3_BUCKET;
@@ -111,6 +129,7 @@ export class ReportsService {
       });
     }
 
+    this.logger.log(`Створено нове звернення ID: ${newReport.id}`);
     return newReport;
   }
 }

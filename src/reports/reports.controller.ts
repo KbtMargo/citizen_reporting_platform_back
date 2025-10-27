@@ -1,14 +1,19 @@
-import { Controller, Get, Param, UseGuards, Request, Post, Body, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, ValidationPipe } from '@nestjs/common';
 import { ReportsService } from './reports.service';
-import { AuthGuard } from '../auth/auth.guard'; 
+import { AuthGuard } from '../auth/auth.guard';
 import { CreateReportDto } from './dto/create-report.dto';
+
+class CreateReportPayload {
+  dto: CreateReportDto;
+  fileKeys: string[];
+}
 
 @Controller('api/reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get()
-  findAllPublic() { 
+  findAllPublic() {
     return this.reportsService.findAll();
   }
 
@@ -25,12 +30,18 @@ export class ReportsController {
   }
 
   @UseGuards(AuthGuard)
-  @Post() // Обробляє POST-запити на /api/reports
+  @Post()
   create(
-    @Body(new ValidationPipe()) createReportDto: CreateReportDto, // Валідуємо тіло запиту
-    @Request() req,
+    @Body() payload: { 
+      title: string; description?: string; lat?: string; lng?: string; address?: string; 
+      categoryId: string; recipientId: string; fileKeys: string[] 
+    },
+    @Request() req
   ) {
-    const userId = req.user.sub; // Беремо ID користувача з токена
-    return this.reportsService.create(createReportDto, userId);
+    const userId = req.user.sub;
+    
+    const { fileKeys, ...createReportDto } = payload;
+    
+    return this.reportsService.create(createReportDto as CreateReportDto, userId, fileKeys);
   }
 }
