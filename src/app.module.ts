@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { RecipientsModule } from './recipients/recipients.module';
 import { AdminModule } from './admin/admin.module';
+import { OsbbModule } from './osbb/osbb.module';
 
 
 @Module({
@@ -17,7 +18,7 @@ import { AdminModule } from './admin/admin.module';
       isGlobal: true, 
       envFilePath: '.env',
     }),
-    PrismaModule, ReportsModule, NotificationsModule, AuthModule, UsersModule, CategoriesModule, RecipientsModule, AdminModule],
+    PrismaModule, ReportsModule, NotificationsModule, AuthModule, UsersModule, CategoriesModule, RecipientsModule, AdminModule, OsbbModule],
   controllers: [AppController],
   providers: [AppService],
 })

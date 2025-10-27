@@ -43,6 +43,7 @@ model Report {
   address     String?      @db.Text
   geom        Unsupported("geography(Point, 4326)")?
   status      ReportStatus @default(NEW)
+  priority    ReportPriority @default(NORMAL)
   authorId    String
   author      User         @relation(fields: [authorId], references: [id])
   categoryId  String
@@ -118,7 +119,6 @@ model File {
 enum UserRole {
   RESIDENT
   OSBB_ADMIN
-  RECIPIENT
   ADMIN
 }
 
@@ -140,4 +140,10 @@ enum NotificationPriority {
   URGENT
   NORMAL
   LOW
+}
+
+enum ReportPriority {
+  LOW
+  NORMAL
+  URGENT
 }
