@@ -59,6 +59,24 @@ export class ReportsService {
     });
   }
 
+  async getStatsForUser(userId: string) {
+    const open = await this.prisma.report.count({
+      where: {
+        authorId: userId,
+        status: { in: ['NEW', 'IN_PROGRESS'] },
+      },
+    });
+
+    const closed = await this.prisma.report.count({
+      where: {
+        authorId: userId,
+        status: { in: ['DONE', 'REJECTED'] },
+      },
+    });
+
+    return { open, closed };
+  }
+
   async create(createReportDto: CreateReportDto, userId: string, fileKeys: string[] = []) {
     const { title, description, lat, lng, address, categoryId, recipientId } = createReportDto;
 

@@ -24,6 +24,13 @@ export class ReportsController {
     return this.reportsService.findMyReports(userId);
   }
 
+  @UseGuards(AuthGuard)
+  @Get('my-stats')
+  async getMyStats(@Request() req) {
+    const userId = req.user.sub;
+    return this.reportsService.getStatsForUser(userId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.reportsService.findOne(id);
