@@ -1,7 +1,6 @@
-// src/notifications/notifications.service.ts
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Injectable()
 export class NotificationsService {
@@ -27,9 +26,7 @@ export class NotificationsService {
       console.log(`КРОК Б: [БЕКЕНД] Успішно знайшов ${notifications.length} сповіщень в базі.`);
       return notifications;
     } catch (error) {
-      // Цей блок зловить будь-яку помилку від Prisma
       console.error("КРОК В: [БЕКЕНД] ПОМИЛКА ПРИ РОБОТІ З БАЗОЮ ДАНИХ:", error);
-      // Перекидаємо помилку далі, щоб NestJS повернув стандартну 500
       throw error;
     }
   }

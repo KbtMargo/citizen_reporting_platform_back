@@ -1,13 +1,15 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { OAuth2Client } from 'google-auth-library'; 
 import axios from 'axios'; 
+
 @Injectable()
 export class AuthService {
   private googleClient: OAuth2Client;
+  private readonly logger = new Logger(AuthService.name); // Додано логер
 
   constructor(
     private prisma: PrismaService,
@@ -16,7 +18,7 @@ export class AuthService {
     this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   }
 
-private async verifyRecaptcha(token: string): Promise<void> {
+  private async verifyRecaptcha(token: string): Promise<void> {
     const secretKey = process.env.RECAPTCHA_SECRET_KEY;
     if (!secretKey) throw new BadRequestException('reCAPTCHA не налаштовано на сервері');
 
@@ -37,6 +39,7 @@ private async verifyRecaptcha(token: string): Promise<void> {
       throw new BadRequestException(`Несанкціонований hostname: ${data.hostname}`);
     }
   }
+
   async register(email: string, password: string, firstName: string, lastName: string, invitationCode: string, phone: string | undefined, recaptchaToken: string) {
     
     await this.verifyRecaptcha(recaptchaToken);
@@ -64,7 +67,7 @@ private async verifyRecaptcha(token: string): Promise<void> {
   }
 
   async googleRegister(googleToken: string, invitationCode: string, phone: string | undefined, recaptchaToken: string) {
-  await this.verifyRecaptcha(recaptchaToken);
+    await this.verifyRecaptcha(recaptchaToken);
 
     const osbb = await this.prisma.oSBB.findUnique({ where: { invitationCode } });
     if (!osbb) throw new BadRequestException('Неправильний код-запрошення ОСББ');
@@ -92,7 +95,7 @@ private async verifyRecaptcha(token: string): Promise<void> {
     const user = await this.prisma.user.create({
       data: {
         email,
-        password: `google_user_${(123)}`,
+        password: `google_user_${(123)}`, // Подумайте про кращий спосіб хешування
         firstName,
         lastName,
         phone,
@@ -116,5 +119,18 @@ private async verifyRecaptcha(token: string): Promise<void> {
       access_token: await this.jwtService.signAsync(payload),
     };
   }
-}
 
+  // --- ОСЬ НОВИЙ МЕТОД ДЛЯ WEBSOCKET ---
+  async verifyToken(token: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET, // Переконайтеся, що секрет той самий
+      });
+      
+      return payload; 
+    } catch (e) {
+      this.logger.warn(`Спроба підключення з недійсним токеном: ${e.message}`);
+      return null;
+    }
+  }
+}
