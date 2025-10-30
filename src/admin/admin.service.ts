@@ -4,7 +4,7 @@ import { ReportStatus, Prisma } from '@prisma/client';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { UpdateUserAdminDto } from './dto/update-user-admin.dto';
-import { NotificationsGateway } from '../notifications/notifications.gateway'; // Додано імпорт
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AdminService {
@@ -13,7 +13,7 @@ export class AdminService {
 
     constructor(
         private prisma: PrismaService,
-        private notificationsGateway: NotificationsGateway, // Додано NotificationsGateway
+        private notificationsService: NotificationsService,
     ) {
         const region = process.env.S3_REGION;
         const endpoint = process.env.S3_ENDPOINT;
@@ -32,46 +32,37 @@ export class AdminService {
         });
     }
 
-    // --- Додано метод для оновлення статусу та надсилання сповіщень ---
     async updateReportStatus(reportId: string, status: ReportStatus, adminName: string) {
         const report = await this.prisma.report.update({
             where: { id: reportId },
             data: { status },
             include: {
-                author: true, // Потрібно, щоб знати, кому надсилати сповіщення
+                author: true,
             },
         });
 
         if (report && report.author) {
-            // Створюємо сповіщення
             const message = `Ваше звернення "${report.title}" отримало новий статус: ${status}.`;
             
-            const notificationPayload = {
+            await this.notificationsService.create({
+                title: report.title,
                 message: message,
+                userId: report.authorId,
                 reportId: report.id,
-                createdAt: new Date(),
-            };
-            
-            // Надсилаємо сповіщення конкретному автору звернення
-            this.notificationsGateway.sendNotificationToUser(
-                report.authorId, 
-                notificationPayload
-            );
+            });
         }
 
-        // Також створюємо запис в історії
         await this.prisma.reportUpdate.create({
             data: {
                 description: `Статус змінено на "${status}"`,
                 reportId: reportId,
-                authorId: adminName, // Припускаємо, що adminName - це ID адміна
+                authorId: adminName,
             }
         });
 
         return report;
     }
 
-    // --- Всі ваші існуючі методи ---
     findAllUsers() {
         return this.prisma.user.findMany({
             orderBy: { createdAt: 'desc' },
@@ -189,7 +180,6 @@ export class AdminService {
             data: dataToUpdate,
         });
 
-        // Створюємо запис в історії та надсилаємо сповіщення
         if (status && status !== oldReport.status) {
             const historyNote = notes || `Статус змінено на "${status}"`;
             
@@ -201,16 +191,14 @@ export class AdminService {
                 }
             });
 
-            // Надсилаємо сповіщення
             const message = `Ваше звернення "${oldReport.title}" отримало новий статус: ${status}.`;
-            this.notificationsGateway.sendNotificationToUser(
-                oldReport.authorId, 
-                {
-                    message: message,
-                    reportId: reportId,
-                    createdAt: new Date(),
-                }
-            );
+            await this.notificationsService.create({
+                title: oldReport.title,
+                message: message,
+                userId: oldReport.authorId,
+                reportId: reportId,
+            });
+
         } else if (notes) {
              await this.prisma.reportUpdate.create({
                 data: {
@@ -219,7 +207,6 @@ export class AdminService {
                     authorId: adminUserId,
                 }
             });
-             // Опціонально: надсилати сповіщення і про нові нотатки
         }
         
         return updatedReport;
@@ -239,6 +226,5 @@ export class AdminService {
     }
 
     async deleteUser(userId: string) {
-    return this.prisma.user.delete({ where: { id: userId } });
-    }
+    return this.prisma.user.delete({ where: { id: userId } });    }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, ValidationPipe, Patch } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -50,5 +50,23 @@ export class ReportsController {
     const { fileKeys, ...createReportDto } = payload;
     
     return this.reportsService.create(createReportDto as CreateReportDto, userId, fileKeys);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateData: {
+      status?: 'NEW' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
+      priority?: 'LOW' | 'NORMAL' | 'URGENT';
+      title?: string;
+      description?: string;
+      address?: string;
+      notes?: string;
+    },
+    @Request() req
+  ) {
+    const userId = req.user.sub;
+    return this.reportsService.update(id, updateData, userId);
   }
 }

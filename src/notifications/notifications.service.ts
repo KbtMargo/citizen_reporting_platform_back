@@ -1,33 +1,48 @@
-import { Injectable } from '@nestjs/common';
+// src/notifications/notifications.service.ts
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { AuthModule } from 'src/auth/auth.module';
+import { NotificationsGateway } from './notifications.gateway';
+import { CreateNotificationDto } from './dto/create-notification.dto';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(NotificationsService.name);
 
+  constructor(
+    private prisma: PrismaService,
+    private notificationsGateway: NotificationsGateway,
+  ) {}
+
+  // ... (Ваш метод findAllForUser залишається без змін) ...
   async findAllForUser(userId: string) {
-    console.log(`КРОК А: [БЕКЕНД] Отримав запит для користувача з ID: ${userId}`);
+    // ...
+  }
+
+  async create(dto: CreateNotificationDto) {
+    this.logger.log(`[SERVICE] Створюємо сповіщення для ${dto.userId}`);
     try {
-      const notifications = await this.prisma.notification.findMany({
-        where: { userId },
-        orderBy: {
-          createdAt: 'desc',
+      const newNotification = await this.prisma.notification.create({
+        data: {
+          title: dto.title, // <-- ДОДАНО
+          message: dto.message,
+          userId: dto.userId,
+          reportId: dto.reportId,
         },
-        include: {
+        include: { // Включаємо report, щоб надіслати повні дані на фронтенд
           report: {
-            select: {
-              id: true,
-              title: true,
-            },
-          },
-        },
+            select: { id: true, title: true }
+          }
+        }
       });
-      console.log(`КРОК Б: [БЕКЕНД] Успішно знайшов ${notifications.length} сповіщень в базі.`);
-      return notifications;
+
+      this.notificationsGateway.sendNotificationToUser(
+        dto.userId,
+        newNotification, // Надсилаємо повний об'єкт
+      );
+
+      return newNotification;
     } catch (error) {
-      console.error("КРОК В: [БЕКЕНД] ПОМИЛКА ПРИ РОБОТІ З БАЗОЮ ДАНИХ:", error);
-      throw error;
+      this.logger.error(`[SERVICE] ПОМИЛКА СТВОРЕННЯ СПОВІЩЕННЯ:`, error);
     }
   }
 }

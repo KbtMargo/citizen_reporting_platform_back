@@ -150,4 +150,42 @@ export class ReportsService {
     this.logger.log(`Створено нове звернення ID: ${newReport.id}`);
     return newReport;
   }
+
+  async update(id: string, updateData: any, userId: string) {
+  try {
+    const report = await this.prisma.report.findUnique({
+      where: { id }
+    });
+
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    const { notes, ...reportUpdateData } = updateData;
+
+    const updatedReport = await this.prisma.report.update({
+      where: { id },
+      data: {
+        ...reportUpdateData,
+        updatedAt: new Date(),
+      }
+    });
+
+    if (notes && notes.trim() !== '') {
+      await this.prisma.reportUpdate.create({
+        data: {
+          description: notes,
+          reportId: id,
+          authorId: userId,
+          createdAt: new Date(),
+        }
+      });
+    }
+
+    return updatedReport;
+  } catch (error) {
+    console.error('Error updating report:', error);
+    throw error;
+  }
+}
 }
