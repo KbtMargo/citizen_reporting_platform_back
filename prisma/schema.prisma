@@ -45,7 +45,7 @@ model Report {
   status      ReportStatus @default(NEW)
   priority    ReportPriority @default(NORMAL)
   authorId    String
-  author      User         @relation(fields: [authorId], references: [id])
+  author      User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categoryId  String
   category    Category     @relation(fields: [categoryId], references: [id])
   recipientId String
@@ -61,7 +61,6 @@ model Report {
   @@index([recipientId])
   @@index([status])
 }
-
 
 model Category {
   id      String   @id @default(cuid())
@@ -95,7 +94,7 @@ model Notification {
   priority  NotificationPriority @default(NORMAL)
   isRead    Boolean              @default(false)
   userId    String
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id])
   reportId  String?
   report    Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
   createdAt DateTime             @default(now())

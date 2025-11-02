@@ -1,16 +1,13 @@
-import { IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsEmail } from 'class-validator';
+import { UserRole } from '@prisma/client';
 
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(50)
   firstName?: string;
 
   @IsOptional()
   @IsString()
-  @MinLength(2)
-  @MaxLength(50)
   lastName?: string;
 
   @IsOptional()
@@ -18,6 +15,10 @@ export class UpdateUserDto {
   phone?: string;
 
   @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @IsOptional()
   @IsString()
-  email?: string;
+  osbbId?: string;
 }
