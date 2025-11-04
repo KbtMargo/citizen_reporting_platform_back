@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, ValidationPipe, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, ValidationPipe, Patch, ForbiddenException, Req, Query } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateReportDto } from './dto/create-report.dto';
+import { Role } from 'src/auth/roles.enum';
+import { Roles } from 'src/auth/roles.decorator';
 
 class CreateReportPayload {
   dto: CreateReportDto;
@@ -10,6 +12,7 @@ class CreateReportPayload {
 
 @Controller('api/reports')
 export class ReportsController {
+  prisma: any;
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get()
@@ -68,5 +71,49 @@ export class ReportsController {
   ) {
     const userId = req.user.sub;
     return this.reportsService.update(id, updateData, userId);
+  }
+
+
+    @Get('my-osbb')
+  @Roles(Role.OSBB_ADMIN, Role.ADMIN)
+  async listForOsbb(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('take') take = '50'
+  ) {
+    const where: any = { author: { osbbId: req.user.osbbId } };
+    if (status) where.status = status;
+    if (categoryId) where.categoryId = categoryId;
+
+    return this.prisma.report.findMany({
+      where,
+      take: Math.min(Number(take) || 50, 200),
+      orderBy: { createdAt: 'desc' },
+      include: { author: true, category: true, recipient: true },
+    });
+  }
+
+  @Patch(':id/assign')
+  @Roles(Role.OSBB_ADMIN, Role.ADMIN)
+  async assignRecipient(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { recipientId: string }
+  ) {
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: { author: { select: { osbbId: true } } },
+    });
+    if (!report) throw new ForbiddenException('Report not found');
+
+    if (req.user.role === Role.OSBB_ADMIN && report.author.osbbId !== req.user.osbbId) {
+      throw new ForbiddenException('Not your OSBB');
+    }
+
+    return this.prisma.report.update({
+      where: { id },
+      data: { recipientId: body.recipientId },
+    });
   }
 }

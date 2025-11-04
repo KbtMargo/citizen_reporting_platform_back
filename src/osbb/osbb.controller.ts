@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, ValidationPipe, Req } from '@nestjs/common';
 import { OsbbService } from './osbb.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -13,6 +13,7 @@ import { Role } from 'src/auth/roles.enum';
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class OsbbController {
+  prisma: any;
   constructor(private readonly osbbService: OsbbService) {}
 
   @Post()
@@ -34,4 +35,15 @@ export class OsbbController {
   remove(@Param('id') id: string) {
     return this.osbbService.remove(id);
   }
+
+    @Get('members')
+  @Roles(Role.OSBB_ADMIN, Role.ADMIN)
+  async members(@Req() req: any) {
+    return this.prisma.user.findMany({
+      where: { osbbId: req.user.osbbId },
+      select: { id: true, email: true, firstName: true, lastName: true, phone: true, role: true },
+      orderBy: [{ role: 'desc' }, { lastName: 'asc' }],
+    });
+  }
+
 }
