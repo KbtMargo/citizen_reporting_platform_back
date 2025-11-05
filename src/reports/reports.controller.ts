@@ -4,6 +4,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { CreateReportDto } from './dto/create-report.dto';
 import { Role } from 'src/auth/roles.enum';
 import { Roles } from 'src/auth/roles.decorator';
+import { RolesGuard } from 'src/auth/roles.guard';
 
 class CreateReportPayload {
   dto: CreateReportDto;
@@ -73,10 +74,10 @@ export class ReportsController {
     return this.reportsService.update(id, updateData, userId);
   }
 
-
+    @UseGuards(AuthGuard, RolesGuard)
     @Get('my-osbb')
-  @Roles(Role.OSBB_ADMIN, Role.ADMIN)
-  async listForOsbb(
+    @Roles(Role.OSBB_ADMIN, Role.ADMIN)
+    async listForOsbb(
     @Req() req: any,
     @Query('status') status?: string,
     @Query('categoryId') categoryId?: string,
