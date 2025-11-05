@@ -54,7 +54,20 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   // Цей метод ми будемо викликати з наших сервісів
-  sendNotificationToUser(userId: string, payload: any) {
-    this.server.to(userId).emit('new_notification', payload);
-  }
+  // sendNotificationToUser(userId: string, payload: any) {
+  //   this.server.to(userId).emit('new_notification', payload);
+  // }
+
+  // Цей метод ми будемо викликати з наших сервісів
+// Цей метод ми будемо викликати з наших сервісів
+sendNotificationToUser(userId: string, payload: any) {
+  this.logger.log('🔵 [NOTIFICATIONS GATEWAY] Відправка сповіщення користувачу:', userId, payload);
+  
+  // Перевіряємо, чи є підключені клієнти до цієї кімнати
+  const room = this.server.sockets.adapter.rooms.get(userId);
+  this.logger.log(`🟡 [NOTIFICATIONS GATEWAY] Кількість підключених клієнтів до room ${userId}: ${room ? room.size : 0}`);
+  
+  this.server.to(userId).emit('new_notification', payload);
+  this.logger.log('🟢 [NOTIFICATIONS GATEWAY] Співіщення відправлено');
+}
 }

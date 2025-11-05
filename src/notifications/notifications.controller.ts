@@ -1,18 +1,36 @@
 // src/notifications/notifications.controller.ts
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, Patch, Param, Logger } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('api/notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  private readonly logger = new Logger(NotificationsController.name);
 
-  @UseGuards(AuthGuard) // <-- ВИПРАВЛЕНО: Замінено 'new AuthGuard('jwt')'
+  constructor(private readonly notificationsService: NotificationsService) {
+    this.logger.log('🟢 NotificationsController ініціалізовано');
+  }
+
+  @UseGuards(AuthGuard)
   @Get('my')
   findMyNotifications(@Request() req) {
-    // req.user.sub - це ID з вашого JWT токену
+    this.logger.log('🟡 [CONTROLLER] GET /api/notifications/my');
     const userId = req.user.sub;
-    // Викликаємо сервіс з ID поточного користувача
     return this.notificationsService.findAllForUser(userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch(':id/read')
+  markAsRead(@Param('id') id: string, @Request() req) {
+    this.logger.log(`🟡 [CONTROLLER] PATCH /api/notifications/${id}/read`);
+    return this.notificationsService.markAsRead(id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('read-all')
+  markAllAsRead(@Request() req) {
+    const userId = req.user.sub;
+    this.logger.log('🟡 [CONTROLLER] PATCH /api/notifications/read-all');
+    return this.notificationsService.markAllAsRead(userId);
   }
 }

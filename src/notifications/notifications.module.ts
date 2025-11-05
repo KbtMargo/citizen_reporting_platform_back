@@ -1,23 +1,21 @@
-import { Module } from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
+import { Module, Logger } from '@nestjs/common';
 import { NotificationsController } from './notifications.controller';
+import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
-import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from '../prisma.module';
+import { AuthModule } from '../auth/auth.module';
+
 
 @Module({
-  imports: [
-    AuthModule
-  ],
-  controllers: [
-    NotificationsController
-  ],
-  providers: [
-    NotificationsService,
-    NotificationsGateway 
-  ],
-  exports: [
-    NotificationsGateway, 
-    NotificationsService 
-  ],
+  imports: [PrismaModule, AuthModule],
+  controllers: [NotificationsController],
+  providers: [NotificationsService, NotificationsGateway],
+  exports: [NotificationsService],
 })
-export class NotificationsModule {}
+export class NotificationsModule {
+  private readonly logger = new Logger(NotificationsModule.name);
+
+  constructor() {
+    this.logger.log('🟢 NotificationsModule завантажено');
+  }
+}

@@ -15,6 +15,8 @@ export class CreateNotificationDto {
 
   @IsUUID()
   reportId: string;
+  type: string;
+  priority: string;
 }
 
 // (Інші класи, якщо вони тут є, залишаються)

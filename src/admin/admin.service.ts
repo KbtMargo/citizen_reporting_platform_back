@@ -68,6 +68,8 @@ export class AdminService {
         message: message,
         userId: report.authorId,
         reportId: report.id,
+        type: 'REPORT_UPDATE',
+        priority: 'LOW'
       });
     }
 
@@ -245,6 +247,9 @@ findAllUsers(includeCounts: boolean) {
         message: message,
         userId: oldReport.authorId,
         reportId: reportId,
+        type: 'REPORT_STATUS_CHANGE',
+        priority: 'MEDIUM'
+
       });
     } else if (notes) {
       await this.prisma.reportUpdate.create({

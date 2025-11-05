@@ -70,10 +70,13 @@ export class ReportsController {
     },
     @Request() req
   ) {
+      console.log('🔵 [REPORTS CONTROLLER] Оновлення звернення:', id);
+    console.log('🟡 [REPORTS CONTROLLER] Дані для оновлення:', updateData);
+    console.log('🟡 [REPORTS CONTROLLER] Статус у даних:', updateData.status);
+
     const userId = req.user.sub;
     return this.reportsService.update(id, updateData, userId);
   }
-
     @UseGuards(AuthGuard, RolesGuard)
     @Get('my-osbb')
     @Roles(Role.OSBB_ADMIN, Role.ADMIN)
