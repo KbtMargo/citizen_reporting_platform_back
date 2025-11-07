@@ -13,12 +13,11 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:unit": "jest -c jest.config.ts --runInBand",
-    "test:e2e": "cross-env NODE_ENV=test jest --config ./test/jest-e2e.json"
+    "test": "jest -c jest.config.ts",
+    "test:watch": "jest -c jest.config.ts --watch",
+    "test:cov": "jest -c jest.config.ts --coverage",
+    "test:unit": "jest -c jest.config.ts test/unit",
+    "test:e2e": "jest -c jest.config.ts --testPathPatterns \"test[\\\\/]feature\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.913.0",
@@ -55,7 +54,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.19.0",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
     "cross-env": "^10.1.0",

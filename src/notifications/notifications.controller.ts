@@ -1,9 +1,8 @@
-// src/notifications/notifications.controller.ts
 import { Controller, Get, UseGuards, Request, Patch, Param, Logger } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { AuthGuard } from '../auth/auth.guard';
 
-@Controller('api/notifications')
+@Controller('notifications')
 export class NotificationsController {
   private readonly logger = new Logger(NotificationsController.name);
 
