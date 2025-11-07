@@ -19,7 +19,7 @@ import { UpdateReportDto } from './dto/update-report.dto';
 import { Role } from 'src/auth/roles.enum';
 import { UpdateUserAdminDto } from './dto/update-user-admin.dto';
 
-@Controller('api/admin')
+@Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminController {

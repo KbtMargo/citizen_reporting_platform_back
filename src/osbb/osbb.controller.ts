@@ -9,7 +9,7 @@ import { UpdateOsbbDto } from './dto/update-osbb.dto';
 import { Role } from 'src/auth/roles.enum';
 
 
-@Controller('api/admin/osbb')
+@Controller('admin/osbb')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class OsbbController {
