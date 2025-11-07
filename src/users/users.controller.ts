@@ -17,7 +17,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '@prisma/client';
 
-@Controller('api/users')
+@Controller('users')
 export class UsersController {
   constructor(private usersService: UsersService) {}
 

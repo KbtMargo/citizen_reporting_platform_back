@@ -11,7 +11,7 @@ class CreateReportPayload {
   fileKeys: string[];
 }
 
-@Controller('api/reports')
+@Controller('reports')
 export class ReportsController {
   prisma: any;
   constructor(private readonly reportsService: ReportsService) {}
