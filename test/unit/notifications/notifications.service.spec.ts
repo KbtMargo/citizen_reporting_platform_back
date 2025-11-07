@@ -10,7 +10,7 @@ describe('NotificationsService (unit)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma = createPrismaMock();
-    // @ts-ignore: конструктор (prisma, notificationsGateway)
+    // @ts-ignore
     service = new NotificationsService(prisma, gateway);
   });
 
@@ -47,9 +47,8 @@ describe('NotificationsService (unit)', () => {
   });
   expect(gateway.sendNotificationToUser).toHaveBeenCalledWith('u1', created);
 
-  // 🔽 головне: прибираємо TS18047
   expect(res).not.toBeNull();
-  expect((res as any).id).toBe('n1'); // або: expect(res?.id).toBe('n1')
+  expect((res as any).id).toBe('n1'); 
 });
 
 

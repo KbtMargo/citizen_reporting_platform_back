@@ -11,9 +11,8 @@ describe('NotificationsGateway', () => {
     authService = { verifyToken: jest.fn() };
     emitSpy = jest.fn();
 
-    // Кожному тесту — свій server
     serverMock = {
-      to: jest.fn(() => ({ emit: emitSpy })), // <<< ВАЖЛИВО: гарантуємо наявність emit
+      to: jest.fn(() => ({ emit: emitSpy })),
       sockets: { adapter: { rooms: new Map<string, Set<string>>() } },
     };
 
@@ -51,7 +50,6 @@ describe('NotificationsGateway', () => {
   });
 
   it('sendNotificationToUser -> emit у кімнату', () => {
-    // на випадок якщо хтось десь перепише to()
     serverMock.to.mockImplementation(() => ({ emit: emitSpy }));
 
     gateway.sendNotificationToUser('u1', { msg: 'hi' });

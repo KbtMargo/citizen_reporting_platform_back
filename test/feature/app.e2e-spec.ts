@@ -1,4 +1,3 @@
-// test/feature/app.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -32,8 +31,4 @@ describe('App e2e (smoke)', () => {
     await request(app.getHttpServer()).get('/api/unknown').expect(404);
   });
 
-  // якщо маєш /health — розкоментуй:
-  // it('GET /api/health -> 200', async () => {
-  //   await request(app.getHttpServer()).get('/api/health').expect(200);
-  // });
 });

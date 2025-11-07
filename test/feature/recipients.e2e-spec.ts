@@ -26,14 +26,14 @@ describe('Recipients e2e', () => {
     await app.close();
   });
 
-  it('GET /api/api/recipients -> 200 + список', async () => {
+  it('GET /api/recipients -> 200 + список', async () => {
     prisma.recipient.findMany.mockResolvedValue([
       { id: 'r1', name: 'Міськсвітло' },
       { id: 'r2', name: 'Дорсервіс' },
     ] as any);
 
     const res = await request(app.getHttpServer())
-      .get('/api/api/recipients')
+      .get('/api/recipients')
       .expect(200);
 
     expect(res.body).toHaveLength(2);

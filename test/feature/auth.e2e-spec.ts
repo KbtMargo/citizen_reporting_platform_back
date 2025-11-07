@@ -19,7 +19,6 @@ describe('Auth e2e', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
-    // У контролерах вже є 'api/...', тож з префіксом шляхи будуть /api/api/...
     app.setGlobalPrefix('api');
     await app.init();
   });
@@ -28,16 +27,16 @@ describe('Auth e2e', () => {
     await app.close();
   });
 
-  it('POST /api/api/auth/login -> 401 коли користувача нема', async () => {
+  it('POST /api/auth/login -> 401 коли користувача нема', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
 
     await request(app.getHttpServer())
-      .post('/api/api/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'none@a', password: 'p' })
       .expect(401);
   });
 
-  it('POST /api/api/auth/login -> 200 з валідним паролем', async () => {
+  it('POST /api/auth/login -> 200 з валідним паролем', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'u1',
       email: 'a@a',
@@ -47,7 +46,7 @@ describe('Auth e2e', () => {
     } as any);
 
     const res = await request(app.getHttpServer())
-      .post('/api/api/auth/login')
+      .post('/api/auth/login')
       .send({ email: 'a@a', password: 'p' })
       .expect(200);
 

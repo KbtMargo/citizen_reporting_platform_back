@@ -9,7 +9,6 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     service = new AuthService(prisma as any, jwt as any);
-    // Вимкнемо реальний reCAPTCHA/Google всередині тестів (можна винести в окремі порти)
     // @ts-ignore
     service['verifyRecaptcha'] = jest.fn().mockResolvedValue(undefined);
     // @ts-ignore
