@@ -4,6 +4,7 @@ import {
   Logger,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ReportStatus, Prisma, UserRole } from '@prisma/client';
@@ -64,34 +65,45 @@ export class AdminService {
 
   async findAllUsers(scope: Scope, includeCounts: boolean) {
     const where = this.userScopeWhere(scope);
+    const total = await this.prisma.user.count({ where });
 
     if (!includeCounts) {
-      return this.prisma.user.findMany({
+      const users = await this.prisma.user.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true, email: true, firstName: true, lastName: true,
-          phone: true, role: true, osbbId: true,
-          createdAt: true, osbb: true,
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          osbbId: true,
+          createdAt: true,
+          osbb: true,
         },
       });
+      return { data: users, total };
     }
 
-    const [users, counts] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true, email: true, firstName: true, lastName: true,
-          phone: true, role: true, osbbId: true, createdAt: true,
-          osbb: true,
-          _count: { select: { reports: true } },
-        },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
+    const usersWithCounts = await this.prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        osbbId: true,
+        createdAt: true,
+        osbb: true,
+        _count: { select: { reports: true } },
+      },
+    });
 
-    return { data: users, total: counts };
+    return { data: usersWithCounts, total };
   }
 
   async findAllReports(scope: Scope) {
@@ -111,9 +123,15 @@ export class AdminService {
   async getDashboardStats(scope: Scope) {
     const base = this.reportScopeWhere(scope);
     const [pending, inProgress, resolved, total] = await Promise.all([
-      this.prisma.report.count({ where: { ...base, status: ReportStatus.NEW } }),
-      this.prisma.report.count({ where: { ...base, status: ReportStatus.IN_PROGRESS } }),
-      this.prisma.report.count({ where: { ...base, status: ReportStatus.DONE } }),
+      this.prisma.report.count({
+        where: { ...base, status: ReportStatus.NEW },
+      }),
+      this.prisma.report.count({
+        where: { ...base, status: ReportStatus.IN_PROGRESS },
+      }),
+      this.prisma.report.count({
+        where: { ...base, status: ReportStatus.DONE },
+      }),
       this.prisma.report.count({ where: base }),
     ]);
     return { pending, inProgress, resolved, total };
@@ -126,16 +144,18 @@ export class AdminService {
       _count: { _all: true },
       where: base,
     });
-    const ids = grouped.map(g => g.categoryId).filter(Boolean) as string[];
+    const ids = grouped.map((g) => g.categoryId).filter(Boolean) as string[];
     if (ids.length === 0) return [];
     const cats = await this.prisma.category.findMany({
       where: { id: { in: ids } },
       select: { id: true, name: true },
     });
-    const nameById = new Map(cats.map(c => [c.id, c.name]));
+    const nameById = new Map(cats.map((c) => [c.id, c.name]));
     return grouped
-      .map(g => ({
-        name: g.categoryId ? nameById.get(g.categoryId) ?? 'Без категорії' : 'Без категорії',
+      .map((g) => ({
+        name: g.categoryId
+          ? nameById.get(g.categoryId) ?? 'Без категорії'
+          : 'Без категорії',
         total: g._count._all,
       }))
       .sort((a, b) => b.total - a.total);
@@ -223,21 +243,36 @@ export class AdminService {
     const { notes, status, filesToDelete, ...reportData } = data;
     const oldReport = await this.prisma.report.findUnique({
       where: { id: reportId },
-      select: { status: true, authorId: true, title: true, author: { select: { osbbId: true } } },
+      select: {
+        status: true,
+        authorId: true,
+        title: true,
+        author: { select: { osbbId: true } },
+      },
     });
     if (!oldReport) throw new NotFoundException('Report not found');
-    if (scope?.role === 'OSBB_ADMIN' && oldReport.author?.osbbId !== scope.osbbId) {
+    if (
+      scope?.role === 'OSBB_ADMIN' &&
+      oldReport.author?.osbbId !== scope.osbbId
+    ) {
       throw new ForbiddenException();
     }
     if (filesToDelete && filesToDelete.length > 0) {
       const bucketName = process.env.S3_BUCKET;
-      if (!bucketName) throw new InternalServerErrorException('Назва S3 бакету не налаштована.');
+      if (!bucketName)
+        throw new InternalServerErrorException('Назва S3 бакету не налаштована.');
       for (const fileKey of filesToDelete) {
         try {
-          const deleteCommand = new DeleteObjectCommand({ Bucket: bucketName, Key: fileKey });
+          const deleteCommand = new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: fileKey,
+          });
           await this.s3Client.send(deleteCommand);
         } catch (error) {
-          this.logger.error(`Не вдалося видалити файл з S3: ${fileKey}`, (error as any).stack);
+          this.logger.error(
+            `Не вдалося видалити файл з S3: ${fileKey}`,
+            (error as any).stack,
+          );
         }
       }
       await this.prisma.file.deleteMany({
@@ -272,7 +307,7 @@ export class AdminService {
     return updatedReport;
   }
 
-  async updateUser(userId: string, data: UpdateUserAdminDto, scope: Scope) {
+async updateUser(userId: string, data: UpdateUserAdminDto, scope: Scope) {
     if (scope.role === 'OSBB_ADMIN') {
       const u = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -280,17 +315,37 @@ export class AdminService {
       });
       if (!u) throw new NotFoundException('Користувача не знайдено');
       if (u.osbbId !== scope.osbbId) throw new ForbiddenException();
-      if (data.osbbId && data.osbbId !== scope.osbbId) throw new ForbiddenException();
+      if (
+        Object.prototype.hasOwnProperty.call(data, 'osbbId') &&
+        data.osbbId !== u.osbbId
+      ) {
+        throw new ForbiddenException();
+      }
     }
+
+    const updateData: Prisma.UserUpdateInput = {
+      firstName: data.firstName ?? undefined,
+      lastName: data.lastName ?? undefined,
+      phone: data.phone ?? undefined,
+      role: data.role ?? undefined,
+    };
+
+    // Виправлена логіка для оновлення зв'язку OSBB
+    if (Object.prototype.hasOwnProperty.call(data, 'osbbId')) {
+      if (data.osbbId === null) {
+        updateData.osbb = {
+          disconnect: true,
+        };
+      } else {
+        updateData.osbb = {
+          connect: { id: data.osbbId },
+        };
+      }
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
-      data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        phone: data.phone,
-        role: data.role,
-        osbbId: data.osbbId,
-      },
+      data: updateData,
     });
   }
 
@@ -303,6 +358,17 @@ export class AdminService {
       if (!u) throw new NotFoundException('Користувача не знайдено');
       if (u.osbbId !== scope.osbbId) throw new ForbiddenException();
     }
+
+    const userReportsCount = await this.prisma.report.count({
+      where: { authorId: userId },
+    });
+
+    if (userReportsCount > 0) {
+      throw new ConflictException(
+        "Неможливо видалити користувача, оскільки він має пов'язані звернення.",
+      );
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.reportUpdate.deleteMany({ where: { authorId: userId } });
       await tx.notification.deleteMany({ where: { userId } });
@@ -312,7 +378,8 @@ export class AdminService {
   }
 
   async findReportsForExport(filters: ReportExportFilters, scope: Scope) {
-    const { dateFrom, dateTo, userId, categoryId, recipientId, status } = filters;
+    const { dateFrom, dateTo, userId, categoryId, recipientId, status } =
+      filters;
     const base = this.reportScopeWhere(scope);
     const where: Prisma.ReportWhereInput = { ...base };
     if (dateFrom || dateTo) {
@@ -339,14 +406,19 @@ export class AdminService {
     });
   }
 
-
   async findAllOsbb() {
-  return this.prisma.osbb.findMany({
-    orderBy: { name: 'asc' },
-    select: {
-      id: true,
-      name: true,
-    },
-  });
-}
+    return this.prisma.oSBB.findMany({ 
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        
+        address: true,
+        invitationCode: true,
+        _count: {
+          select: { members: true }
+        },
+        },
+    });
+  }
 }

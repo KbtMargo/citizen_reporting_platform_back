@@ -1,10 +1,13 @@
-import { IsString, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsPhoneNumber, ValidateIf, IsUUID } from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class UpdateUserAdminDto {
   @IsOptional() @IsString() firstName?: string;
   @IsOptional() @IsString() lastName?: string;
-  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsPhoneNumber('UA') phone?: string;
   @IsOptional() @IsEnum(UserRole) role?: UserRole;
-  @IsOptional() @IsUUID() osbbId?: string | null;
+
+  @ValidateIf(o => o.osbbId !== null && o.osbbId !== undefined)
+  @IsString()
+  osbbId?: string | null;
 }
