@@ -24,13 +24,11 @@ export class AuthGuard implements CanActivate {
   }
 
 private extractTokenFromHeader(request: Request): string | undefined {
-  // Спершу перевіряємо Authorization header
   const [type, token] = request.headers.authorization?.split(' ') ?? [];
   if (type === 'Bearer' && token) {
     return token;
   }
   
-  // Якщо немає в header, перевіряємо cookie
   const cookieHeader = request.headers.cookie;
   if (cookieHeader) {
     const cookies = cookieHeader.split(';').reduce((acc, cookie) => {

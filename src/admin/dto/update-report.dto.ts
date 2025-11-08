@@ -1,7 +1,11 @@
 import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
-import { ReportStatus, ReportPriority } from '@prisma/client'; 
+import { ReportStatus, ReportPriority } from '@prisma/client';
 
 export class UpdateReportDto {
+  @IsOptional()
+  @IsEnum(ReportStatus)
+  status?: ReportStatus;
+
   @IsOptional()
   @IsString()
   title?: string;
@@ -17,10 +21,6 @@ export class UpdateReportDto {
   @IsOptional()
   @IsString()
   recipientId?: string;
-
-  @IsOptional()
-  @IsEnum(ReportStatus)
-  status?: ReportStatus;
   
   @IsOptional()
   @IsEnum(ReportPriority)
