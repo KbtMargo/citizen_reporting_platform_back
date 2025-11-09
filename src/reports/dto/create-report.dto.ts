@@ -1,4 +1,3 @@
-// src/reports/dto/create-report.dto.ts
 import { IsString, IsNotEmpty, IsOptional, IsDecimal, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -9,22 +8,20 @@ export class CreateReportDto {
   @IsString() @IsOptional() @MaxLength(1000)
   description?: string;
 
-  // --- ЗМІНЕНО ---
-  @IsOptional() // Тепер опціонально
+  @IsOptional() 
   @IsDecimal({ decimal_digits: '6' })
   @Type(() => String)
   lat?: string;
 
-  @IsOptional() // Тепер опціонально
+  @IsOptional() 
   @IsDecimal({ decimal_digits: '6' })
   @Type(() => String)
   lng?: string;
 
-  @IsOptional() // Тепер опціонально
+  @IsOptional() 
   @IsString()
-  @MinLength(10) // Додамо мінімальну довжину для адреси
+  @MinLength(10) 
   address?: string;
-  // -------------
 
   @IsString() @IsNotEmpty()
   categoryId: string;

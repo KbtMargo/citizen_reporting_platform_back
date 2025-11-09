@@ -13,9 +13,5 @@ import { AuthModule } from '../auth/auth.module';
   exports: [NotificationsService],
 })
 export class NotificationsModule {
-  private readonly logger = new Logger(NotificationsModule.name);
-
-  constructor() {
-    this.logger.log('🟢 NotificationsModule завантажено');
-  }
+  constructor() {  }
 }

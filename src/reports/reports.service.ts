@@ -8,7 +8,6 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReportsService {
-  private readonly logger = new Logger(ReportsService.name);
   private geocoder: Geocoder;
 
   constructor(
@@ -97,7 +96,7 @@ export class ReportsService {
           if (geoResult.length > 0 && geoResult[0].formattedAddress) {
             finalAddress = geoResult[0].formattedAddress;
           }
-        } catch (e) { this.logger.warn("Не вдалося виконати зворотнє геокодування"); }
+        } catch (e) { }
       }
     } else if (address) {
       try {
@@ -109,7 +108,6 @@ export class ReportsService {
           throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
         }
       } catch (error) {
-        this.logger.error(`Помилка геокодування: ${error.message}`);
         throw new BadRequestException(`Помилка при визначенні координат.`);
       }
     } else {
@@ -151,114 +149,11 @@ export class ReportsService {
       });
     }
 
-    this.logger.log(`Створено нове звернення ID: ${newReport.id}`);
     return newReport;
   }
 
-//   async update(id: string, updateData: any, userId: string) {
-//   try {
-//     const report = await this.prisma.report.findUnique({
-//       where: { id }
-//     });
-
-//     if (!report) {
-//       throw new Error('Report not found');
-//     }
-
-//     const { notes, ...reportUpdateData } = updateData;
-
-//     const updatedReport = await this.prisma.report.update({
-//       where: { id },
-//       data: {
-//         ...reportUpdateData,
-//         updatedAt: new Date(),
-//       }
-//     });
-
-//     if (notes && notes.trim() !== '') {
-//       await this.prisma.reportUpdate.create({
-//         data: {
-//           description: notes,
-//           reportId: id,
-//           authorId: userId,
-//           createdAt: new Date(),
-//         }
-//       });
-//     }
-
-//     return updatedReport;
-//   } catch (error) {
-//     console.error('Error updating report:', error);
-//     throw error;
-//   }
-// }
-
-//  async update(id: string, updateData: any, userId: string) {
-//     try {
-//       const report = await this.prisma.report.findUnique({
-//         where: { id },
-//         include: { author: true } // ДОДАНО: включаємо автора для сповіщення
-//       });
-
-//       if (!report) {
-//         throw new Error('Report not found');
-//       }
-
-//       const { notes, ...reportUpdateData } = updateData;
-
-//       // Перевіряємо, чи змінився статус
-//       const statusChanged = reportUpdateData.status && reportUpdateData.status !== report.status;
-
-//       const updatedReport = await this.prisma.report.update({
-//         where: { id },
-//         data: {
-//           ...reportUpdateData,
-//           updatedAt: new Date(),
-//         }
-//       });
-
-//       if (notes && notes.trim() !== '') {
-//         await this.prisma.reportUpdate.create({
-//           data: {
-//             description: notes,
-//             reportId: id,
-//             authorId: userId,
-//             createdAt: new Date(),
-//           }
-//         });
-//       }
-
-//       // ВІДПРАВЛЯЄМО СПОВІЩЕННЯ ПРИ ЗМІНІ СТАТУСУ
-//       if (statusChanged) {
-//         const statusMessages = {
-//           'NEW': 'Ваше звернення отримано та зареєстровано',
-//           'IN_PROGRESS': 'Робота над вашим зверненням розпочата',
-//           'DONE': 'Ваше звернення успішно вирішено',
-//           'REJECTED': 'Ваше звернення відхилено'
-//         };
-
-//         const message = statusMessages[reportUpdateData.status] || 'Статус вашого звернення змінено';
-
-//         await this.notificationsService.create({
-//           title: `Оновлення статусу звернення: "${report.title}"`,
-//           message: message,
-//           userId: report.authorId, // Відправляємо автору звернення
-//           reportId: report.id,
-//         });
-
-//         this.logger.log(`Сповіщення відправлено автору ${report.authorId} про зміну статусу звернення ${report.id}`);
-//       }
-
-//       return updatedReport;
-//     } catch (error) {
-//       console.error('Error updating report:', error);
-//       throw error;
-//     }
-//   }
-
 async update(id: string, updateData: any, userId: string) {
   try {
-    this.logger.log('🔵 [REPORTS SERVICE] Оновлення звернення:', id, updateData);
 
     const report = await this.prisma.report.findUnique({
       where: { id },
@@ -271,9 +166,7 @@ async update(id: string, updateData: any, userId: string) {
 
     const { notes, ...reportUpdateData } = updateData;
 
-    // Перевіряємо, чи змінився статус
     const statusChanged = reportUpdateData.status && reportUpdateData.status !== report.status;
-    this.logger.log(`🟡 [REPORTS SERVICE] Статус змінився?: ${statusChanged} з ${report.status} на ${reportUpdateData.status}`);
 
     const updatedReport = await this.prisma.report.update({
       where: { id },
@@ -294,9 +187,7 @@ async update(id: string, updateData: any, userId: string) {
       });
     }
 
-    // ВІДПРАВЛЯЄМО СПОВІЩЕННЯ ПРИ ЗМІНІ СТАТУСУ
     if (statusChanged) {
-      this.logger.log(`🟢 [REPORTS SERVICE] Створюємо сповіщення для користувача: ${report.authorId}`);
       
       const statusMessages = {
         'NEW': 'Ваше звернення отримано та зареєстровано',
@@ -318,15 +209,12 @@ async update(id: string, updateData: any, userId: string) {
 
         });
 
-        this.logger.log('🟢 [REPORTS SERVICE] Результат створення сповіщення:', notificationResult);
       } catch (notificationError) {
-        this.logger.error('🔴 [REPORTS SERVICE] Помилка створення сповіщення:', notificationError);
       }
     }
 
     return updatedReport;
   } catch (error) {
-    this.logger.error('🔴 [REPORTS SERVICE] Помилка оновлення звернення:', error);
     throw error;
   }
 }

@@ -26,7 +26,6 @@ type Scope = { role: UserRole; osbbId?: string | null };
 
 @Injectable()
 export class AdminService {
-  private readonly logger = new Logger(AdminService.name);
   private readonly s3Client: S3Client;
 
   constructor(
@@ -38,7 +37,6 @@ export class AdminService {
     const accessKeyId = process.env.S3_ACCESS_KEY_ID;
     const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
     if (!region || !endpoint || !accessKeyId || !secretAccessKey) {
-      this.logger.error('Відсутні необхідні змінні середовища для S3!');
       throw new InternalServerErrorException('Неправильна конфігурація S3');
     }
     this.s3Client = new S3Client({
@@ -269,10 +267,6 @@ export class AdminService {
           });
           await this.s3Client.send(deleteCommand);
         } catch (error) {
-          this.logger.error(
-            `Не вдалося видалити файл з S3: ${fileKey}`,
-            (error as any).stack,
-          );
         }
       }
       await this.prisma.file.deleteMany({
@@ -330,7 +324,6 @@ async updateUser(userId: string, data: UpdateUserAdminDto, scope: Scope) {
       role: data.role ?? undefined,
     };
 
-    // Виправлена логіка для оновлення зв'язку OSBB
     if (Object.prototype.hasOwnProperty.call(data, 'osbbId')) {
       if (data.osbbId === null) {
         updateData.osbb = {

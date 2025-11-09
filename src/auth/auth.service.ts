@@ -15,7 +15,6 @@ import axios from 'axios';
 @Injectable()
 export class AuthService {
   private googleClient: OAuth2Client;
-  private readonly logger = new Logger(AuthService.name);
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -184,9 +183,6 @@ export class AuthService {
 
       return payload;
     } catch (e) {
-      this.logger.warn(
-        `Спроба підключення з недійсним токеном: ${e.message}`,
-      );
       return null;
     }
   }

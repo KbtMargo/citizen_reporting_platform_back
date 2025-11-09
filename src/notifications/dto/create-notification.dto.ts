@@ -1,10 +1,9 @@
-// src/notifications/dto/create-notification.dto.ts
 import { IsString, IsUUID, IsNotEmpty } from 'class-validator';
 
 export class CreateNotificationDto {
   @IsString()
   @IsNotEmpty()
-  title: string; // <-- ДОДАНО
+  title: string;
 
   @IsString()
   @IsNotEmpty()
@@ -19,6 +18,5 @@ export class CreateNotificationDto {
   priority: string;
 }
 
-// (Інші класи, якщо вони тут є, залишаються)
 export class Notification {}
 export class UpdateNotificationDto {}

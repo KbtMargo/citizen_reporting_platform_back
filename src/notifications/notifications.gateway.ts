@@ -18,12 +18,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   @WebSocketServer()
   server: Server;
 
-  private readonly logger = new Logger(NotificationsGateway.name);
-
-  // Припустимо, ви інжектуєте AuthService для перевірки токену
   constructor(private readonly authService: AuthService) {}
 
-  // Ця функція спрацює, коли користувач підключиться
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
@@ -31,43 +27,23 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         throw new Error('Немає токену');
       }
       
-      // Перевіряємо токен (логіка може бути вашою)
-      const userPayload = await this.authService.verifyToken(token); // Вам треба мати такий метод
+      const userPayload = await this.authService.verifyToken(token); 
       if (!userPayload) {
         throw new Error('Недійсний токен');
       }
 
-      // Кожен користувач приєднується до "кімнати" зі своїм ID
-      // Це дозволяє нам надсилати сповіщення конкретному користувачу
-      client.join(userPayload.sub); // userPayload.sub - це зазвичай userId
-      this.logger.log(`Клієнт ${userPayload.sub} підключився: ${client.id}`);
+      client.join(userPayload.sub); 
       
     } catch (e) {
-      this.logger.error(`Помилка підключення: ${e.message}`);
       client.disconnect();
     }
   }
 
-  // Коли користувач відключився
   handleDisconnect(client: Socket) {
-    this.logger.log(`Клієнт відключився: ${client.id}`);
   }
 
-  // Цей метод ми будемо викликати з наших сервісів
-  // sendNotificationToUser(userId: string, payload: any) {
-  //   this.server.to(userId).emit('new_notification', payload);
-  // }
-
-  // Цей метод ми будемо викликати з наших сервісів
-// Цей метод ми будемо викликати з наших сервісів
-sendNotificationToUser(userId: string, payload: any) {
-  this.logger.log('🔵 [NOTIFICATIONS GATEWAY] Відправка сповіщення користувачу:', userId, payload);
-  
-  // Перевіряємо, чи є підключені клієнти до цієї кімнати
-  const room = this.server.sockets.adapter.rooms.get(userId);
-  this.logger.log(`🟡 [NOTIFICATIONS GATEWAY] Кількість підключених клієнтів до room ${userId}: ${room ? room.size : 0}`);
-  
-  this.server.to(userId).emit('new_notification', payload);
-  this.logger.log('🟢 [NOTIFICATIONS GATEWAY] Співіщення відправлено');
-}
+  sendNotificationToUser(userId: string, payload: any) {
+    const room = this.server.sockets.adapter.rooms.get(userId);
+    this.server.to(userId).emit('new_notification', payload);
+  }
 }
