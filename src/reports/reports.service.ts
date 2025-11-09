@@ -1,16 +1,19 @@
 import { Injectable, BadRequestException, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
-import { Decimal } from '@prisma/client/runtime/library'; 
-import { Prisma } from '@prisma/client';
-import NodeGeocoder, { Geocoder } from 'node-geocoder';
+import { Prisma, ReportStatus } from '@prisma/client';
+import { Geocoder } from 'node-geocoder';
+import NodeGeocoder = require('node-geocoder');
+import { NotificationsService } from '../notifications/notifications.service'; 
 
 @Injectable()
 export class ReportsService {
-  private readonly logger = new Logger(ReportsService.name);
   private geocoder: Geocoder;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService, 
+  ) {
     this.geocoder = NodeGeocoder({ provider: 'openstreetmap' });
   }
 
@@ -59,24 +62,60 @@ export class ReportsService {
     });
   }
 
+  async getStatsForUser(userId: string) {
+    const open = await this.prisma.report.count({
+      where: {
+        authorId: userId,
+        status: { in: ['NEW', 'IN_PROGRESS'] },
+      },
+    });
+
+    const closed = await this.prisma.report.count({
+      where: {
+        authorId: userId,
+        status: { in: ['DONE', 'REJECTED'] },
+      },
+    });
+
+    return { open, closed };
+  }
+
   async create(createReportDto: CreateReportDto, userId: string, fileKeys: string[] = []) {
     const { title, description, lat, lng, address, categoryId, recipientId } = createReportDto;
 
-    let latitude: Decimal;
-    let longitude:  Decimal;
+    let latitude: Prisma.Decimal;
+    let longitude: Prisma.Decimal;
+    let finalAddress: string | null | undefined = address;
 
-    if (lat != null && lng != null) {
-      latitude = new Decimal(lat);
-      longitude = new Decimal(lng);
-    } else if (address) {
-      const geoResult = await this.geocoder.geocode(address);
-      if (!geoResult?.length || geoResult[0].latitude == null || geoResult[0].longitude == null) {
-        throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+    if (lat && lng) {
+      latitude = new Prisma.Decimal(lat);
+      longitude = new Prisma.Decimal(lng);
+      if (!finalAddress) {
+        try {
+          const geoResult = await this.geocoder.reverse({ lat: parseFloat(lat), lon: parseFloat(lng) });
+          if (geoResult.length > 0 && geoResult[0].formattedAddress) {
+            finalAddress = geoResult[0].formattedAddress;
+          }
+        } catch (e) { }
       }
-      latitude = new Decimal(geoResult[0].latitude as number);
-      longitude = new Decimal(geoResult[0].longitude as number);
+    } else if (address) {
+      try {
+        const geoResult = await this.geocoder.geocode(address);
+        if (geoResult && geoResult.length > 0 && geoResult[0].latitude && geoResult[0].longitude) {
+          latitude = new Prisma.Decimal(geoResult[0].latitude);
+          longitude = new Prisma.Decimal(geoResult[0].longitude);
+        } else {
+          throw new BadRequestException(`Не вдалося знайти координати для адреси: ${address}`);
+        }
+      } catch (error) {
+        throw new BadRequestException(`Помилка при визначенні координат.`);
+      }
     } else {
       throw new BadRequestException('Не надано ані координат, ані адреси.');
+    }
+
+    if (!latitude || !longitude) {
+        throw new InternalServerErrorException('Не вдалося визначити координати.');
     }
 
     const newReport = await this.prisma.report.create({
@@ -85,17 +124,16 @@ export class ReportsService {
         description,
         lat: latitude,
         lng: longitude,
+        address: finalAddress,
         authorId: userId,
         categoryId,
         recipientId,
       },
     });
 
-    await this.prisma.$executeRaw`
-      UPDATE "Report"
-      SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
-      WHERE id = ${newReport.id}
-    `;
+    await this.prisma.$executeRaw(
+      Prisma.sql`UPDATE "Report" SET geom = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326) WHERE id = ${newReport.id}`
+    );
 
     if (fileKeys.length > 0) {
       const bucketName = process.env.S3_BUCKET;
@@ -113,4 +151,72 @@ export class ReportsService {
 
     return newReport;
   }
+
+async update(id: string, updateData: any, userId: string) {
+  try {
+
+    const report = await this.prisma.report.findUnique({
+      where: { id },
+      include: { author: true }
+    });
+
+    if (!report) {
+      throw new Error('Report not found');
+    }
+
+    const { notes, ...reportUpdateData } = updateData;
+
+    const statusChanged = reportUpdateData.status && reportUpdateData.status !== report.status;
+
+    const updatedReport = await this.prisma.report.update({
+      where: { id },
+      data: {
+        ...reportUpdateData,
+        updatedAt: new Date(),
+      }
+    });
+
+    if (notes && notes.trim() !== '') {
+      await this.prisma.reportUpdate.create({
+        data: {
+          description: notes,
+          reportId: id,
+          authorId: userId,
+          createdAt: new Date(),
+        }
+      });
+    }
+
+    if (statusChanged) {
+      
+      const statusMessages = {
+        'NEW': 'Ваше звернення отримано та зареєстровано',
+        'IN_PROGRESS': 'Робота над вашим зверненням розпочата',
+        'DONE': 'Ваше звернення успішно вирішено',
+        'REJECTED': 'Ваше звернення відхилено'
+      };
+
+      const message = statusMessages[reportUpdateData.status] || 'Статус вашого звернення змінено';
+
+      try {
+        const notificationResult = await this.notificationsService.create({
+          title: `Оновлення статусу звернення: "${report.title}"`,
+          message: message,
+          userId: report.authorId,
+          reportId: report.id,
+          type: 'REPORT_STATUS_CHANGE',
+          priority: 'MEDIUM'
+
+        });
+
+      } catch (notificationError) {
+      }
+    }
+
+    return updatedReport;
+  } catch (error) {
+    throw error;
+  }
+}
+
 }

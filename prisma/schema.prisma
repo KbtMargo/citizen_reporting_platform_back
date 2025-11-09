@@ -3,10 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  directUrl         = env("DIRECT_URL")
-  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -17,12 +15,13 @@ model User {
   lastName      String?
   role          UserRole       @default(RESIDENT)
   osbbId        String?
-  osbb          OSBB?          @relation(fields: [osbbId], references: [id])
-  reports       Report[]
-  reportUpdates ReportUpdate[]
-  notifications Notification[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  phone         String?
+  notifications Notification[]
+  reports       Report[]
+  reportUpdates ReportUpdate[]
+  osbb          OSBB?          @relation(fields: [osbbId], references: [id])
 }
 
 model OSBB {
@@ -30,37 +29,38 @@ model OSBB {
   name           String   @unique
   address        String?
   invitationCode String   @unique @default(cuid())
-  members        User[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  members        User[]
 }
 
 model Report {
-  id          String       @id @default(cuid())
-  title       String
-  description String?      @db.Text
-  lat         Decimal      @db.Decimal(9, 6)
-  lng         Decimal      @db.Decimal(9, 6)
-  geom        Unsupported("geography(Point, 4326)")?
-  status      ReportStatus @default(NEW)
-  authorId    String
-  author      User         @relation(fields: [authorId], references: [id])
-  categoryId  String
-  category    Category     @relation(fields: [categoryId], references: [id])
-  recipientId String
-  recipient   Recipient    @relation(fields: [recipientId], references: [id])
-  updates     ReportUpdate[]
-  files       File[]
+  id            String                    @id @default(cuid())
+  title         String
+  description   String?
+  lat           Decimal                   @db.Decimal(9, 6)
+  lng           Decimal                   @db.Decimal(9, 6)
+  geom          Unsupported("geography")?
+  status        ReportStatus              @default(NEW)
+  authorId      String
+  categoryId    String
+  recipientId   String
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  address       String?
+  priority      ReportPriority            @default(NORMAL)
+  files         File[]
   notifications Notification[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  author        User                      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category      Category                  @relation(fields: [categoryId], references: [id])
+  recipient     Recipient                 @relation(fields: [recipientId], references: [id])
+  updates       ReportUpdate[]
 
   @@index([authorId])
   @@index([categoryId])
   @@index([recipientId])
   @@index([status])
 }
-
 
 model Category {
   id      String   @id @default(cuid())
@@ -78,12 +78,12 @@ model Recipient {
 
 model ReportUpdate {
   id          String   @id @default(cuid())
-  description String   @db.Text
+  description String
   reportId    String
-  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
   authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
   createdAt   DateTime @default(now())
+  author      User     @relation(fields: [authorId], references: [id])
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -94,10 +94,10 @@ model Notification {
   priority  NotificationPriority @default(NORMAL)
   isRead    Boolean              @default(false)
   userId    String
-  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   reportId  String?
-  report    Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
   createdAt DateTime             @default(now())
+  report    Report?              @relation(fields: [reportId], references: [id])
+  user      User                 @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([reportId])
@@ -111,14 +111,22 @@ model File {
   mime      String?
   bytes     Int?
   reportId  String?
-  report    Report?  @relation(fields: [reportId], references: [id])
   createdAt DateTime @default(now())
+  report    Report?  @relation(fields: [reportId], references: [id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
 }
 
 enum UserRole {
   RESIDENT
   OSBB_ADMIN
-  RECIPIENT
   ADMIN
 }
 
@@ -140,4 +148,10 @@ enum NotificationPriority {
   URGENT
   NORMAL
   LOW
+}
+
+enum ReportPriority {
+  LOW
+  NORMAL
+  URGENT
 }
