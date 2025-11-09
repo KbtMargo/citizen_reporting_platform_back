@@ -1,11 +1,11 @@
-# 🏙️ Платформа Звернень [Назва Вашого Проєкту] (Backend API)
+# 🏙️ Платформа Звернень СiviсRеports (Backend API)
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/your-username/backend-repo-name/ci.yml?style=for-the-badge&logo=githubactions)
 ![Tech Stack](https://img.shields.io/badge/Tech-NestJS-red?style=for-the-badge&logo=nestjs)
 ![Database](https://img.shields.io/badge/Database-PostgreSQL-blue?style=for-the-badge&logo=postgresql)
 ![ORM](https://img.shields.io/badge/ORM-Prisma-white?style=for-the-badge&logo=prisma)
 
-Це бекенд-сервіс (API) для СшмшсКузщке. Він відповідає за бізнес-логіку, автентифікацію, керування базою даних та надання даних для клієнтської частини.
+Це бекенд-сервіс (API) для СiviсRеports. Він відповідає за бізнес-логіку, автентифікацію, керування базою даних та надання даних для клієнтської частини.
 
 > ⚠️ **Важливо:** Цей репозиторій містить **лише бекенд (API)**. Він не має користувацького інтерфейсу.
 >
